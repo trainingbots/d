@@ -1,24 +1,21 @@
-name: Telegram Bot
+name: Run Telegram Bot
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
   schedule:
-    - cron: '0 */5 * * *'  # كل 5 ساعات
+    - cron: '0 */5 * * *'  # يتم تشغيل البوت كل 5 ساعات
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v2
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v2
       with:
-        python-version: '3.11'
+        python-version: '3.x'
 
     - name: Install dependencies
       run: |
