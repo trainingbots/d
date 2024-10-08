@@ -208,7 +208,7 @@ async def handler(event):
                     error_text = str(e)
                     if "exceeds" in error_text or "الحجم" in error_text:
                         await progress_message.edit(messages[user_lang]['file_too_large'])
-await progress_message.edit(messages[user_lang]['file_too_large'])
+                        await progress_message.edit(messages[user_lang]['file_too_large'])
                     else:
                         await progress_message.edit(messages[user_lang]['error_downloading'].format(error=error_text))
                     return
