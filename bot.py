@@ -56,11 +56,15 @@ async def is_subscribed(user_id):
 async def get_download_link(mediafire_url):
     """استخراج الرابط المباشر للتحميل من صفحة MediaFire."""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                      'AppleWebKit/537.36 (KHTML, like Gecko) '
-                      'Chrome/58.0.3029.110 Safari/537.3',
-        'Referer': mediafire_url
-    }
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                  'AppleWebKit/537.36 (KHTML, like Gecko) '
+                  'Chrome/58.0.3029.110 Safari/537.3',
+    'Referer': mediafire_url,
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive'
+}
 
     async with aiohttp.ClientSession() as session:
         async with session.get(mediafire_url, headers=headers) as response:
@@ -84,7 +88,8 @@ async def download_file(download_url, file_path, progress_callback):
                       'Chrome/58.0.3029.110 Safari/537.3'
     }
 
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(cookies={'cookie_name': 'cookie_value'}) as session:
+        time.sleep(2)  # تأخير لمدة 2 ثانية قبل إرسال الطلب
         async with session.get(download_url, headers=headers) as response:
             if response.status != 200:
                 raise Exception(f"فشل في تحميل الملف. كود الحالة: {response.status}")
