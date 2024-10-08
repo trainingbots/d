@@ -39,7 +39,6 @@ def get_user_language(user_id):
 
 # دالة لاستخراج رابط التحميل المباشر من صفحة MediaFire
 async def get_download_link(mediafire_url):
-    """استخراج الرابط المباشر للتحميل من صفحة MediaFire."""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                       'AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -62,7 +61,6 @@ async def get_download_link(mediafire_url):
 
 # دالة لتحميل الملف مع تحديث التقدم
 async def download_file(download_url, file_path, progress_callback):
-    """تحميل ملف بشكل غير متزامن وتحديث التقدم عبر callback."""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                       'AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -143,14 +141,6 @@ async def handler(event):
                         [Button.inline("العربية", b"lang_ar")]
                     ]
                 )
-            else:
-                await event.respond(
-                    messages['en']['select_language'] if user_lang == 'en' else messages['ar']['select_language'],
-                    buttons=[
-                        [Button.inline("English", b"lang_en")],
-                        [Button.inline("العربية", b"lang_ar")]
-                    ]
-                )
             return
 
         # التعامل مع أوامر /start و /ابدأ بعد اختيار اللغة
@@ -202,7 +192,6 @@ async def handler(event):
                     await progress_message.edit(messages[user_lang]['file_sent'])
                 except FloodWaitError as fwe:
                     await progress_message.edit(f"Flood wait error. Please try again after {fwe.seconds} seconds.")
-                    # يمكنك إضافة تأخير هنا إذا رغبت
                 except Exception as e:
                     await progress_message.edit(messages[user_lang]['error_downloading'].format(error=str(e)))
 
@@ -211,69 +200,17 @@ async def handler(event):
         else:
             await event.reply(messages[user_lang]['invalid_link'])
     except FloodWaitError as fwe:
-        # الانتظار لمدة المحددة ثم المحاولة مرة أخرى
         print(f"FloodWaitError: must wait for {fwe.seconds} seconds")
         await asyncio.sleep(fwe.seconds)
-        # يمكن إرسال رسالة للمستخدم لإعلامه بالانتظار
-        try:
-            user_lang = get_user_language(event.sender_id)
-            await event.reply(
-                "You are sending messages too quickly. Please wait before trying again."
-                if user_lang == 'en' else
-                "أنت ترسل الرسائل بسرعة كبيرة. يرجى الانتظار قبل المحاولة مرة أخرى."
-            )
-        except Exception:
-            pass
     except Exception as e:
-        user_lang = get_user_language(event.sender_id)
-        error_messages = {
-            'en': "An error occurred while processing your request.",
-            'ar': "حدث خطأ أثناء معالجة طلبك."
-        }
-        try:
-            await event.reply(error_messages.get(user_lang, "An error occurred while processing your request."))
-        except FloodWaitError as fwe:
-            print(f"FloodWaitError: must wait for {fwe.seconds} seconds")
-            await asyncio.sleep(fwe.seconds)
-        except Exception:
-            pass
-        # يمكن تسجيل الخطأ للاطلاع عليه لاحقاً
-        # print(f"Error handling message: {e}")
+        await event.reply(messages[user_lang]['error_processing'])
+        print(f"Error: {str(e)}")
 
-# معالج للأزرار
-@client.on(events.CallbackQuery)
-async def callback_handler(event):
-    try:
-        user_id = event.sender_id
-        data = event.data.decode('utf-8')
+# بدء تشغيل العميل
+async def main():
+    await client.start()
+    print("Bot is running...")
+    await client.run_until_disconnected()
 
-        if data == "lang_en":
-            user_languages[str(user_id)] = 'en'
-            save_user_languages()
-            await event.edit(messages['en']['language_set'])
-        elif data == "lang_ar":
-            user_languages[str(user_id)] = 'ar'
-            save_user_languages()
-            await event.edit(messages['ar']['language_set'])
-    except FloodWaitError as fwe:
-        print(f"FloodWaitError: must wait for {fwe.seconds} seconds")
-        await asyncio.sleep(fwe.seconds)
-        try:
-            user_lang = get_user_language(event.sender_id)
-            await event.respond(
-                "You are sending messages too quickly. Please wait before trying again."
-                if user_lang == 'en' else
-                "أنت ترسل الرسائل بسرعة كبيرة. يرجى الانتظار قبل المحاولة مرة أخرى."
-            )
-    except Exception as e:
-        # يمكن تسجيل الخطأ للاطلاع عليه لاحقاً
-        # print(f"Error handling callback: {e}")
-        pass
-
-# بدء تشغيل البوت
-if __name__ == "__main__":
-    try:
-        print("Bot started successfully.")
-        client.run_until_disconnected()
-    except Exception as e:
-        print(f"Error starting the bot: {e}")
+if __name__ == '__main__':
+    asyncio.run(main())
