@@ -3,7 +3,7 @@ name: Run Telegram Bot
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 * * * *'  # يتم تشغيل البوت كل ساعة في بداية الساعة
+    - cron: '0 */5 * * *'  # يتم تشغيل البوت كل 5 ساعات
 
 jobs:
   run-bot:
@@ -15,12 +15,15 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.8'
+        python-version: '3.8'  # تحديد إصدار Python بشكل دقيق
 
-    - name: Install dependencies
+    - name: Install system dependencies
+      run: sudo apt-get install -y build-essential python3-dev gcc  # تثبيت الأدوات الأساسية
+
+    - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r requirements.txt  # تثبيت المكتبات من ملف المتطلبات
 
     - name: Run the bot
       env:
@@ -28,4 +31,4 @@ jobs:
         API_HASH: ${{ secrets.API_HASH }}
         BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
       run: |
-        python bot.py
+        python bot.py || echo "Bot failed to run"  # تشغيل البوت مع تسجيل الأخطاء
