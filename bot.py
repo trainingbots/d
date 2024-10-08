@@ -7,10 +7,10 @@ from telethon import TelegramClient, events, Button
 import re
 from telethon.errors.rpcerrorlist import FloodWaitError
 
-# تحميل المتغيرات البيئية
-api_id = os.getenv('API_ID')
-api_hash = os.getenv('API_HASH')
-bot_token = os.getenv('BOT_TOKEN')
+# معلومات البوت: يمكنك الحصول على هذه المعلومات من خلال BotFather في Telegram
+api_id = os.getenv('API_ID')  # استبدلها بـ API ID الخاصة بك
+api_hash = os.getenv('API_HASH')  # استبدلها بـ API Hash الخاصة بك
+bot_token = os.getenv('BOT_TOKEN')  # استبدلها بـ Bot Token الخاص بك
 
 # تهيئة عميل Telethon
 client = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
@@ -37,8 +37,24 @@ def save_user_languages():
 def get_user_language(user_id):
     return user_languages.get(str(user_id), 'en')  # اللغة الافتراضية الإنجليزية
 
+# قناة الاشتراك الإجباري
+required_channel = 'ir6qe'  # ضع اسم القناة هنا بدون @
+
+# دالة للتحقق من اشتراك المستخدم في القناة
+async def is_subscribed(user_id):
+    try:
+        participants = await client.get_participants(required_channel)
+        for participant in participants:
+            if participant.id == user_id:
+                return True
+        return False
+    except Exception as e:
+        print(f"Error checking subscription: {e}")
+        return False
+
 # دالة لاستخراج رابط التحميل المباشر من صفحة MediaFire
 async def get_download_link(mediafire_url):
+    """استخراج الرابط المباشر للتحميل من صفحة MediaFire."""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                       'AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -61,6 +77,7 @@ async def get_download_link(mediafire_url):
 
 # دالة لتحميل الملف مع تحديث التقدم
 async def download_file(download_url, file_path, progress_callback):
+    """تحميل ملف بشكل غير متزامن وتحديث التقدم عبر callback."""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                       'AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -130,10 +147,24 @@ async def handler(event):
         message = event.message.message.strip()
         user_lang = get_user_language(user_id)
 
+        # التحقق من اشتراك المستخدم
+        if not await is_subscribed(user_id):
+            await event.reply(f"يرجى الاشتراك في القناة: https://t.me/{required_channel}",
+                              buttons=[Button.inline("تحقق من الاشتراك", b'check_subscription')])
+            return
+
         # إذا لم يقم المستخدم باختيار لغة بعد
         if str(user_id) not in user_languages:
             if message.startswith("/start") or message.startswith("/ابدأ"):
                 # إرسال خيارات اختيار اللغة
+                await event.respond(
+                    messages['en']['select_language'] if user_lang == 'en' else messages['ar']['select_language'],
+                    buttons=[
+                        [Button.inline("English", b"lang_en")],
+                        [Button.inline("العربية", b"lang_ar")]
+                    ]
+                )
+            else:
                 await event.respond(
                     messages['en']['select_language'] if user_lang == 'en' else messages['ar']['select_language'],
                     buttons=[
@@ -176,7 +207,8 @@ async def handler(event):
                 except Exception as e:
                     error_text = str(e)
                     if "exceeds" in error_text or "الحجم" in error_text:
-                        await progress_message.edit(messages[user_lang]['file_too_large'])
+                        await progress_message.edit(messages[user_lang
+await progress_message.edit(messages[user_lang]['file_too_large'])
                     else:
                         await progress_message.edit(messages[user_lang]['error_downloading'].format(error=error_text))
                     return
@@ -200,17 +232,66 @@ async def handler(event):
         else:
             await event.reply(messages[user_lang]['invalid_link'])
     except FloodWaitError as fwe:
+        # الانتظار لمدة المحددة ثم المحاولة مرة أخرى
         print(f"FloodWaitError: must wait for {fwe.seconds} seconds")
         await asyncio.sleep(fwe.seconds)
+        try:
+            user_lang = get_user_language(event.sender_id)
+            await event.reply(
+                "You are sending messages too quickly. Please wait before trying again."
+                if user_lang == 'en' else
+                "أنت ترسل الرسائل بسرعة كبيرة. يرجى الانتظار قبل المحاولة مرة أخرى."
+            )
+        except Exception:
+            pass
     except Exception as e:
-        await event.reply(messages[user_lang]['error_processing'])
-        print(f"Error: {str(e)}")
+        user_lang = get_user_language(event.sender_id)
+        error_messages = {
+            'en': "An error occurred while processing your request.",
+            'ar': "حدث خطأ أثناء معالجة طلبك."
+        }
+        try:
+            await event.reply(error_messages.get(user_lang, "An error occurred while processing your request."))
+        except FloodWaitError as fwe:
+            print(f"FloodWaitError: must wait for {fwe.seconds} seconds")
+            await asyncio.sleep(fwe.seconds)
+        except Exception:
+            pass
 
-# بدء تشغيل العميل
-async def main():
-    await client.start()
-    print("Bot is running...")
-    await client.run_until_disconnected()
+# معالج للأزرار
+@client.on(events.CallbackQuery)
+async def callback_handler(event):
+    try:
+        user_id = event.sender_id
+        data = event.data.decode('utf-8')
 
-if __name__ == '__main__':
-    asyncio.run(main())
+        if data == "lang_en":
+            user_languages[str(user_id)] = 'en'
+            save_user_languages()
+            await event.edit(messages['en']['language_set'])
+        elif data == "lang_ar":
+            user_languages[str(user_id)] = 'ar'
+            save_user_languages()
+            await event.edit(messages['ar']['language_set'])
+    except FloodWaitError as fwe:
+        print(f"FloodWaitError: must wait for {fwe.seconds} seconds")
+        await asyncio.sleep(fwe.seconds)
+        try:
+            user_lang = get_user_language(event.sender_id)
+            await event.respond(
+                "You are sending messages too quickly. Please wait before trying again."
+                if user_lang == 'en' else
+                "أنت ترسل الرسائل بسرعة كبيرة. يرجى الانتظار قبل المحاولة مرة أخرى."
+            )
+        except Exception:
+            pass
+    except Exception as e:
+        # يمكن تسجيل الخطأ للاطلاع عليه لاحقاً
+        pass
+
+# بدء تشغيل البوت
+try:
+    print("Bot started successfully.")
+    client.run_until_disconnected()
+except Exception as e:
+    print(f"Error starting the bot: {e}")
